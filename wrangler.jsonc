@@ -4,17 +4,16 @@
   "analytics_engine_datasets": [
     { "binding": "AE", "dataset": "LargoDeepl" }
   ],
-  ],
   "compatibility_date": "2025-07-19",
   "kv_namespaces": [
     {
       "binding": "CACHE_KV",
-      "id": "1061ab96b4384a07b1f4afb8b5c3ce32",
+      "id": "4d5895d8716247f486493b93edbc5fe9",
       "preview_id": "e9e499fe006e4879a0668e792fe2dd15"
     },
     {
       "binding": "RATE_LIMIT_KV",
-      "id": "1a7b20afda3d41adaac0cba2284fc86b",
+      "id": "07147ca64a4c48fe952f62afe469bb44",
       "preview_id": "bbed039364e5488e8ed58701c3ee5da5"
     }
   ],
