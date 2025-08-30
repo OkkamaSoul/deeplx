@@ -1,9 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "account_id": "6071f8e36426e24052e1193bac67369b",
-"analytics_engine_datasets": [
+  "analytics_engine_datasets": [
     { "binding": "AE", "dataset": "LargoDeepl" }
-    }
+  ],
   ],
   "compatibility_date": "2025-07-19",
   "kv_namespaces": [
