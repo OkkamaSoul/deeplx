@@ -8,13 +8,11 @@
   "kv_namespaces": [
     {
       "binding": "CACHE_KV",
-      "id": "4d5895d8716247f486493b93edbc5fe9",
-      "preview_id": "e9e499fe006e4879a0668e792fe2dd15"
+      "id": "1c4626ac90b7465c93bda977f89910de",
     },
     {
       "binding": "RATE_LIMIT_KV",
-      "id": "07147ca64a4c48fe952f62afe469bb44",
-      "preview_id": "bbed039364e5488e8ed58701c3ee5da5"
+      "id": "7e0216208d2c40feab0808052183385c",
     }
   ],
   "main": "src/index.ts",
