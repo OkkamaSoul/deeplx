@@ -28,7 +28,7 @@
   },
   "vars": {
     "DEBUG_MODE": "false",
-"PROXY_URLS":
+"PROXY_URLS": [
   "https://xdpl10.vercel.app/jsonrpc",
   "https://xdpl9-sable.vercel.app/jsonrpc",
   "https://xdpl8-six.vercel.app/jsonrpc",
@@ -58,6 +58,7 @@
   "https://new7-beryl.vercel.app/jsonrpc",
   "https://new8-six.vercel.app/jsonrpc",
   "https://new9-puce.vercel.app/jsonrpc"
+]
 },
   "workers_dev": true
 }
