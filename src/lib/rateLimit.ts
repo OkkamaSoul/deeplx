@@ -95,4 +95,13 @@ export async function checkCombinedRateLimit(
   }
 
   return { allowed: true };
+  
+/**
+ * Delay execution for specified number of seconds
+ * Used by retryLogic for backoff
+ */
+export async function delayRequest(seconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, seconds * 1000);
+  });
 }
