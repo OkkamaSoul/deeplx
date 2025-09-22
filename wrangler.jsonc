@@ -8,11 +8,11 @@
   "kv_namespaces": [
     {
       "binding": "CACHE_KV",
-      "id": "1c4626ac90b7465c93bda977f89910de",
+      "id": "1c4626ac90b7465c93bda977f89910de"
     },
     {
       "binding": "RATE_LIMIT_KV",
-      "id": "7e0216208d2c40feab0808052183385c",
+      "id": "7e0216208d2c40feab0808052183385c"
     }
   ],
   "main": "src/index.ts",
@@ -28,8 +28,17 @@
   },
   "vars": {
     "DEBUG_MODE": "false",
-"PROXY_URLS":
-  "https://new1-ruby.vercel.app/jsonrpc","https://new2-umber-six.vercel.app/jsonrpc","https://new3-rho-seven.vercel.app/jsonrpc","https://new4-beige.vercel.app/jsonrpc","https://new5-lilac.vercel.app/jsonrpc","https://new6-nine.vercel.app/jsonrpc","https://new7-beryl.vercel.app/jsonrpc","https://new8-six.vercel.app/jsonrpc","https://new9-puce.vercel.app/jsonrpc"
-},
+    "PROXY_URLS": [
+      "https://new1-ruby.vercel.app/jsonrpc",
+      "https://new2-umber-six.vercel.app/jsonrpc",
+      "https://new3-rho-seven.vercel.app/jsonrpc",
+      "https://new4-beige.vercel.app/jsonrpc",
+      "https://new5-lilac.vercel.app/jsonrpc",
+      "https://new6-nine.vercel.app/jsonrpc",
+      "https://new7-beryl.vercel.app/jsonrpc",
+      "https://new8-six.vercel.app/jsonrpc",
+      "https://new9-puce.vercel.app/jsonrpc"
+    ]
+  },
   "workers_dev": true
 }
