@@ -23,8 +23,8 @@ export const DEFAULT_RETRY_CONFIG = {
  */
 export const RATE_LIMIT_CONFIG = {
   // Base per-proxy limits
-  PROXY_TOKENS_PER_SECOND: 4, // Conservative backend proxy rate limit (below 8 to prevent overload)
-  PROXY_MAX_TOKENS: 8, // 2 seconds worth of burst capacity (8 * 2)
+  PROXY_TOKENS_PER_SECOND: 12, // Conservative backend proxy rate limit (below 8 to prevent overload)
+  PROXY_MAX_TOKENS: 24, // 2 seconds worth of burst capacity (8 * 2)
   PROXY_REFILL_RATE: 8, // Proxy token refill rate
 
   // Dynamic client limits (calculated based on proxy count)
