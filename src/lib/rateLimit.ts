@@ -166,19 +166,10 @@ async function checkRateLimit(clientIP: string, env: Env): Promise<boolean> {
  * @param seconds - Number of seconds to delay
  * @returns Promise that resolves after the specified delay
  */
-export async function delayRequest(seconds: number): Promise<void> {
+export function delayRequest(seconds: number): Promise<void> {
   return new Promise((resolve) => {
-    // Use a simple delay implementation for Workers environment
-    const start = Date.now();
-    const checkTime = () => {
-      if (Date.now() - start >= seconds * 1000) {
-        resolve();
-      } else {
-        // Use minimal delay to prevent blocking
-        Promise.resolve().then(checkTime);
-      }
-    };
-    checkTime();
+    // setTimeout в Cloudflare Workers работает — это неблокирующая операция.
+    setTimeout(resolve, seconds * 1000);
   });
 }
 
