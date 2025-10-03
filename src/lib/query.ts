@@ -14,7 +14,6 @@ import {
   generateBrowserFingerprint,
   selectProxy,
   prepareRequestHeaders,
-  REAL_CLIENT_IP_HEADER,
 } from "./proxyManager";
 import { checkCombinedRateLimit } from "./rateLimit";
 import { isRetryableError, RetryOptions, retryWithBackoff } from "./retryLogic";
