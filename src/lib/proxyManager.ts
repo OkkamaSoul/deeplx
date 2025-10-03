@@ -1,6 +1,6 @@
 /**
  * IP rotation and proxy management for DeepLX
- * Handles proxy selection, browser fingerprinting, and request routing
+ * Handles proxy selection, browser fingerprinting, and request routing helpers
  */
 
 /**
@@ -26,21 +26,22 @@ const ACCEPT_LANGUAGES = [
 ];
 
 /**
+ * Header name used to inject the real client IP for origin servers
+ */
+export const REAL_CLIENT_IP_HEADER = "X-Real-Client-IP";
+
+/**
  * Get available proxy endpoints from environment configuration
  * Parses and validates proxy URLs from environment variables
  * @param env Environment bindings containing proxy configuration
  * @returns Promise<ProxyEndpoint[]> - Array of available proxy endpoints
  */
 export async function getProxyEndpoints(env: Env): Promise<ProxyEndpoint[]> {
-  // Get proxy URLs from environment variables
   const proxyUrls = env.PROXY_URLS
     ? env.PROXY_URLS.split(",").map((url) => url.trim())
     : [];
 
-  // Return validated proxy endpoints
-  return proxyUrls.map((url) => ({
-    url,
-  }));
+  return proxyUrls.map((url) => ({ url }));
 }
 
 /**
@@ -52,12 +53,7 @@ export async function getProxyEndpoints(env: Env): Promise<ProxyEndpoint[]> {
 export async function selectProxy(env: Env): Promise<ProxyEndpoint | null> {
   try {
     const proxies = await getProxyEndpoints(env);
-
-    if (proxies.length === 0) {
-      return null;
-    }
-
-    // Random selection for load balancing
+    if (proxies.length === 0) return null;
     const index = Math.floor(Math.random() * proxies.length);
     return proxies[index];
   } catch (error) {
@@ -82,4 +78,36 @@ export function generateBrowserFingerprint(): Record<string, string> {
     Connection: "keep-alive",
     "Upgrade-Insecure-Requests": "1",
   };
+}
+
+/**
+ * Prepare request headers for sending to origin/proxy:
+ * - Remove all headers starting with "cf-"
+ * - Inject the real client IP header (REAL_CLIENT_IP_HEADER)
+ *
+ * Accepts either a Headers instance or a plain Record of headers.
+ *
+ * @param origHeaders Headers | Record<string, string>
+ * @param clientIp optional client IP string
+ * @returns Headers - cleaned and augmented headers
+ */
+export function prepareRequestHeaders(
+  origHeaders: Headers | Record<string, string>,
+  clientIp?: string
+): Headers {
+  const newHeaders = new Headers(origHeaders as any);
+
+  // Remove Cloudflare internal headers (cf-*)
+  for (const [name] of Array.from(newHeaders.entries())) {
+    if (name.toLowerCase().startsWith("cf-")) {
+      newHeaders.delete(name);
+    }
+  }
+
+  // Inject real client IP header (if provided)
+  if (clientIp) {
+    newHeaders.set(REAL_CLIENT_IP_HEADER, clientIp);
+  }
+
+  return newHeaders;
 }
