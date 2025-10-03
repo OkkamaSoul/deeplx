@@ -4,6 +4,14 @@
  */
 
 /**
+ * Header constants
+ * - CF_HEADER_PREFIX: префикс для служебных заголовков Cloudflare
+ * - REAL_CLIENT_IP_HEADER: имя заголовка, который мы добавляем к запросу к origin
+ */
+export const CF_HEADER_PREFIX = "cf-";
+export const REAL_CLIENT_IP_HEADER = "X-Real-Client-IP";
+
+/**
  * Request timeout configurations
  */
 export const REQUEST_TIMEOUT = 10000; // 10 seconds for single requests
@@ -23,9 +31,9 @@ export const DEFAULT_RETRY_CONFIG = {
  */
 export const RATE_LIMIT_CONFIG = {
   // Base per-proxy limits
-  PROXY_TOKENS_PER_SECOND: 12, // Conservative backend proxy rate limit (below 8 to prevent overload)
-  PROXY_MAX_TOKENS: 24, // 2 seconds worth of burst capacity (8 * 2)
-  PROXY_REFILL_RATE: 8, // Proxy token refill rate
+  PROXY_TOKENS_PER_SECOND: 12, // Conservative backend proxy rate limit
+  PROXY_MAX_TOKENS: 24,
+  PROXY_REFILL_RATE: 8,
 
   // Dynamic client limits (calculated based on proxy count)
   BASE_TOKENS_PER_MINUTE: 480, // Fallback when no proxies available
