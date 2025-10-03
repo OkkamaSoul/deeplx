@@ -3,6 +3,8 @@
  * Handles proxy selection, browser fingerprinting, and request routing helpers
  */
 
+import { CF_HEADER_PREFIX, REAL_CLIENT_IP_HEADER } from "./config";
+
 /**
  * Collection of realistic browser user agents for fingerprinting
  */
@@ -24,11 +26,6 @@ const ACCEPT_LANGUAGES = [
   "en-US,en;q=0.9,fr;q=0.8",
   "en-US,en;q=0.9,de;q=0.8",
 ];
-
-/**
- * Header name used to inject the real client IP for origin servers
- */
-export const REAL_CLIENT_IP_HEADER = "X-Real-Client-IP";
 
 /**
  * Get available proxy endpoints from environment configuration
@@ -82,7 +79,7 @@ export function generateBrowserFingerprint(): Record<string, string> {
 
 /**
  * Prepare request headers for sending to origin/proxy:
- * - Remove all headers starting with "cf-"
+ * - Remove all headers starting with CF_HEADER_PREFIX (e.g. "cf-")
  * - Inject the real client IP header (REAL_CLIENT_IP_HEADER)
  *
  * Accepts either a Headers instance or a plain Record of headers.
@@ -97,9 +94,11 @@ export function prepareRequestHeaders(
 ): Headers {
   const newHeaders = new Headers(origHeaders as any);
 
+  const prefixLower = CF_HEADER_PREFIX.toLowerCase();
+
   // Remove Cloudflare internal headers (cf-*)
   for (const [name] of Array.from(newHeaders.entries())) {
-    if (name.toLowerCase().startsWith("cf-")) {
+    if (name.toLowerCase().startsWith(prefixLower)) {
       newHeaders.delete(name);
     }
   }
