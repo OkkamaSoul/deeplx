@@ -10,7 +10,12 @@ import {
 } from "./config";
 import { API_URL, REQUEST_ALTERNATIVES } from "./const";
 import { createErrorResponse } from "./errorHandler";
-import { generateBrowserFingerprint, selectProxy } from "./proxyManager";
+import {
+  generateBrowserFingerprint,
+  selectProxy,
+  prepareRequestHeaders,
+  REAL_CLIENT_IP_HEADER,
+} from "./proxyManager";
 import { checkCombinedRateLimit } from "./rateLimit";
 import { isRetryableError, RetryOptions, retryWithBackoff } from "./retryLogic";
 import {
@@ -21,12 +26,8 @@ import {
   ResponseParams,
 } from "./types";
 
-/**
- * Ensure language code is in uppercase format for consistent output
- * @param langCode - Language code to convert
- * @returns Language code in uppercase
- * @private
- */
+/* ---------- helpers (unchanged / lightly refactored) ---------- */
+
 function ensureUppercaseLanguageCode(langCode: string): string {
   if (!langCode || langCode.toLowerCase() === "auto") {
     return "auto";
@@ -34,21 +35,11 @@ function ensureUppercaseLanguageCode(langCode: string): string {
   return langCode.toUpperCase();
 }
 
-/**
- * Normalize language code to ensure compatibility with DeepL API
- * Accepts both lowercase and uppercase input, always returns uppercase
- * @param langCode - Language code to normalize
- * @returns Normalized language code in uppercase format for DeepL API
- * @private
- */
-function normalizeLanguageCode(langCode: string): string {
+function normalizeLanguageCode(langCode: string) {
   if (!langCode || langCode.toLowerCase() === "auto") {
     return "auto";
   }
-
   const normalized = langCode.toLowerCase();
-
-  // Map common language variations to DeepL-supported codes
   const languageMap: Record<string, string> = {
     chinese: "ZH",
     english: "EN",
@@ -80,35 +71,17 @@ function normalizeLanguageCode(langCode: string): string {
     korean: "KO",
     indonesian: "ID",
   };
-
-  // Check if it's a mapped language name
-  if (languageMap[normalized]) {
-    return languageMap[normalized]; // Return uppercase for DeepL API
-  }
-
-  // Convert to uppercase for DeepL API
+  if (languageMap[normalized]) return languageMap[normalized];
   return normalized.toUpperCase();
 }
 
-/**
- * Build request parameters for DeepL API
- * Creates the structured request object with language settings
- * @param sourceLang - Source language code (defaults to "auto")
- * @param targetLang - Target language code (defaults to "en")
- * @returns Structured request parameters object
- * @private
- */
-
 function buildRequestParams(sourceLang = "auto", targetLang = "en") {
-  // Generate a more reliable ID using a simpler approach
   const timestamp = Date.now();
   const randomComponent = Math.floor(Math.random() * 1000000);
-  // Ensure ID is within a safe range (8-9 digits)
   const requestId = Math.floor(
     (timestamp % 100000000) + (randomComponent % 100000000)
   );
 
-  // Normalize language codes
   const normalizedSourceLang = normalizeLanguageCode(sourceLang || "auto");
   const normalizedTargetLang = normalizeLanguageCode(targetLang || "en");
 
@@ -128,85 +101,43 @@ function buildRequestParams(sourceLang = "auto", targetLang = "en") {
   };
 }
 
-/**
- * Count occurrences of letter 'i' in text
- * Used for generating request timestamps
- * @param translateText - The text to analyze
- * @returns Number of 'i' characters in the text
- * @private
- */
 function countLetterI(translateText: string) {
   return (translateText || "").split("i").length - 1;
 }
 
-/**
- * Generate timestamp based on letter count with improved stability
- * Creates a modified timestamp for request uniqueness that follows DeepL's expected format
- * @param letterCount Count of specific letters in text
- * @returns Modified timestamp value
- * @private
- */
 function getTimestamp(letterCount: number) {
   const timestamp = Date.now();
-
-  // Ensure we have a valid letter count
   const safeLetterCount = Math.max(0, letterCount || 0);
-
-  // If no letter count, return current timestamp
-  if (safeLetterCount === 0) {
-    return timestamp;
-  }
-
-  // Apply DeepL's timestamp modification formula more carefully
+  if (safeLetterCount === 0) return timestamp;
   const modValue = safeLetterCount + 1;
-
-  // Ensure modValue is reasonable to prevent overflow
-  if (modValue <= 0 || modValue > 1000) {
-    return timestamp;
-  }
-
+  if (modValue <= 0 || modValue > 1000) return timestamp;
   try {
     const modifiedTimestamp = timestamp - (timestamp % modValue) + modValue;
-
-    // Validate the result is reasonable
     if (
       modifiedTimestamp > 0 &&
       modifiedTimestamp <= Number.MAX_SAFE_INTEGER &&
       modifiedTimestamp >= timestamp - 1000
     ) {
-      // Should be close to original timestamp
       return modifiedTimestamp;
     }
-  } catch (error) {
-    // If any calculation fails, return original timestamp
-    console.warn("Timestamp calculation failed, using original:", error);
+  } catch {
+    // fallback to original
   }
-
   return timestamp;
 }
 
-/**
- * Build complete request body for DeepL API with enhanced validation
- * Assembles the full request with text, parameters, and timestamp
- * @param data Request parameters containing text and languages
- * @returns JSON string ready for API submission
- * @private
- */
 function buildRequestBody(data: RequestParams) {
-  // Validate input parameters
   if (!data || !data.text || typeof data.text !== "string") {
     throw new Error(
       "Invalid request parameters: text is required and must be a string"
     );
   }
 
-  // Ensure text is not empty
   const trimmedText = data.text;
   if (!trimmedText) {
     throw new Error("Invalid request parameters: text cannot be empty");
   }
 
-  // Apply more conservative text length limits to prevent 413 errors
   const maxTextLength = PAYLOAD_LIMITS.MAX_TEXT_LENGTH;
   if (trimmedText.length > maxTextLength) {
     throw new Error(
@@ -214,17 +145,8 @@ function buildRequestBody(data: RequestParams) {
     );
   }
 
-  // Validate and normalize language codes before building request
   const sourceLang = data.source_lang || "auto";
   const targetLang = data.target_lang || "en";
-
-  // Log language normalization for debugging (only in debug mode)
-  if (typeof globalThis !== "undefined" && globalThis.DEBUG_MODE) {
-    if (sourceLang !== "auto") {
-      console.debug(`Source language normalized: ${sourceLang}`);
-    }
-    console.debug(`Target language normalized: ${targetLang}`);
-  }
 
   const requestData = buildRequestParams(sourceLang, targetLang);
   requestData.params.texts = [
@@ -234,44 +156,32 @@ function buildRequestBody(data: RequestParams) {
   const letterICount = countLetterI(trimmedText);
   const timestamp = getTimestamp(letterICount);
 
-  // Validate timestamp before assigning
   if (timestamp <= 0 || !Number.isFinite(timestamp)) {
     throw new Error("Invalid timestamp generated");
   }
 
   requestData.params.timestamp = timestamp;
 
-  // Build the request string with proper formatting
   let requestString = JSON.stringify(requestData);
-
-  // Apply DeepL's specific formatting requirements
   const requestId = requestData.id;
-
-  // Use DeepL's method spacing logic - simplified and more reliable
   if ((requestId + 5) % 29 === 0 || (requestId + 3) % 13 === 0) {
     requestString = requestString.replace('"method":"', '"method" : "');
   } else {
     requestString = requestString.replace('"method":"', '"method": "');
   }
 
-  // Validate final payload size to prevent 413 errors
   const payloadSize = new TextEncoder().encode(requestString).length;
   if (payloadSize > PAYLOAD_LIMITS.MAX_REQUEST_SIZE) {
     throw new Error(
-      `Request payload too large (${payloadSize} bytes). Maximum allowed is ${PAYLOAD_LIMITS.MAX_REQUEST_SIZE} bytes. Please reduce text length.`
+      `Request payload too large (${payloadSize} bytes). Maximum allowed is ${PAYLOAD_LIMITS.MAX_REQUEST_SIZE} bytes.`
     );
   }
 
   return requestString;
 }
 
-/**
- * Main translation query function
- * Handles the complete translation workflow with retry logic, rate limiting, and error handling
- * @param params Translation request parameters (text, source language, target language)
- * @param config Optional configuration including proxy settings and environment
- * @returns Promise<ResponseParams> - Standardized response with translation result
- */
+/* ---------- main query function (refactored to use header helper) ---------- */
+
 async function query(
   params: RequestParams,
   config?: Config & { env?: any }
@@ -293,10 +203,11 @@ async function query(
 
   try {
     return await retryWithBackoff(async () => {
+      // resolve endpoint (proxy or direct)
       const proxy = config?.env ? await selectProxy(config.env) : null;
       const endpoint = config?.proxyEndpoint ?? proxy?.url ?? API_URL;
 
-      // Use comprehensive rate limit check - includes client and proxy backend limits
+      // rate limit check
       if (config?.env) {
         const clientIP = config?.clientIP || "unknown";
         const rateLimitResult = await checkCombinedRateLimit(
@@ -305,9 +216,7 @@ async function query(
           config.env
         );
         if (!rateLimitResult.allowed) {
-          const error = new Error(
-            rateLimitResult.reason || "Rate limit exceeded"
-          );
+          const error = new Error(rateLimitResult.reason || "Rate limit exceeded");
           (error as any).code = 429;
           throw error;
         }
@@ -322,22 +231,33 @@ async function query(
         try {
           const requestBody = buildRequestBody(params);
 
+          // build base headers object
+          const baseHeadersObj: Record<string, string> = {
+            "Content-Type": "application/json; charset=utf-8",
+            ...fingerprint,
+            ...(config?.customHeader || {}),
+          };
+
+          // Prepare headers: remove cf-* and inject X-Real-Client-IP when provided
+          const preparedHeaders = prepareRequestHeaders(
+            baseHeadersObj,
+            config?.clientIP
+          );
+
           const response = await fetch(endpoint, {
-            headers: {
-              "Content-Type": "application/json; charset=utf-8",
-              ...fingerprint,
-              ...config?.customHeader,
-            },
             method: "POST",
+            headers: preparedHeaders,
             body: requestBody,
             signal: controller.signal,
           });
 
           clearTimeout(timeoutId);
 
-          // If we get a 400 error, log the request body for debugging
           if (!response.ok && response.status === 400) {
-            console.error(`400 error received. Request body was:`, requestBody);
+            // Only log detailed body when debug mode is enabled
+            if ((globalThis as any)?.DEBUG_MODE) {
+              console.error(`400 error received. Request body was:`, requestBody);
+            }
           }
 
           return response;
@@ -345,9 +265,7 @@ async function query(
           clearTimeout(timeoutId);
           if (error instanceof Error && error.name === "AbortError") {
             const timeoutError = new Error(
-              `Request timeout after ${
-                REQUEST_TIMEOUT / 1000
-              } seconds to ${endpoint}`
+              `Request timeout after ${REQUEST_TIMEOUT / 1000} seconds to ${endpoint}`
             );
             (timeoutError as any).status = 408;
             throw timeoutError;
@@ -362,13 +280,10 @@ async function query(
         let errorMessage = `Request failed with status ${response.status}`;
         try {
           const errorText = await response.text();
-          if (errorText) {
-            errorMessage += `: ${errorText}`;
-          }
+          if (errorText) errorMessage += `: ${errorText}`;
         } catch {
-          // Ignore error when reading response body
+          // ignore read errors
         }
-
         const error = new Error(errorMessage);
         (error as any).status = response.status;
         throw error;
@@ -380,31 +295,23 @@ async function query(
       } catch (parseError) {
         const error = new Error(
           `Failed to parse JSON response from ${endpoint}: ${
-            parseError instanceof Error
-              ? parseError.message
-              : String(parseError)
+            parseError instanceof Error ? parseError.message : String(parseError)
           }`
         );
         (error as any).code = 500;
         throw error;
       }
+
       if ("error" in result && result.error) {
         const errorCode = (result.error as any).code;
         const errorMessage =
           (result.error as any).message || "Unknown DeepL API error";
-
-        // Handle specific DeepL error codes
         let enhancedMessage = errorMessage;
 
         switch (errorCode) {
           case 1156049:
             enhancedMessage =
-              "Invalid request format detected. This may be caused by: " +
-              "1) Incorrect JSON-RPC structure, " +
-              "2) Invalid request ID format, " +
-              "3) Malformed timestamp, or " +
-              "4) Unsupported language codes. " +
-              "Please verify your request parameters and try again.";
+              "Invalid request format detected. This may be caused by: 1) Incorrect JSON-RPC structure, 2) Invalid request ID format, 3) Malformed timestamp, or 4) Unsupported language codes.";
             break;
           case 1042912:
             enhancedMessage = "Too many requests. Please try again later.";
@@ -413,8 +320,7 @@ async function query(
             enhancedMessage = "Request quota exceeded. Please try again later.";
             break;
           case 1042003:
-            enhancedMessage =
-              "Invalid authentication. Please check your API configuration.";
+            enhancedMessage = "Invalid authentication. Please check your API configuration.";
             break;
           default:
             enhancedMessage = `DeepL API error: ${errorMessage} (Code: ${errorCode})`;
@@ -426,11 +332,7 @@ async function query(
         throw error;
       }
 
-      if (
-        !result.result ||
-        !result.result.texts ||
-        !result.result.texts.length
-      ) {
+      if (!result.result || !result.result.texts || !result.result.texts.length) {
         const error = new Error("Invalid response structure from DeepL API");
         (error as any).code = 500;
         throw error;
