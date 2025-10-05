@@ -7,9 +7,11 @@
  * Header constants
  * - CF_HEADER_PREFIX: префикс для служебных заголовков Cloudflare
  * - REAL_CLIENT_IP_HEADER: имя заголовка, который мы добавляем к запросу к origin
+ *
+ * NOTE: REAL_CLIENT_IP_HEADER set to "X-Real-IP" to be compatible with many origin servers.
  */
 export const CF_HEADER_PREFIX = "cf-";
-export const REAL_CLIENT_IP_HEADER = "X-Real-Client-IP";
+export const REAL_CLIENT_IP_HEADER = "X-Real-IP";
 
 /**
  * Request timeout configurations
@@ -27,16 +29,16 @@ export const DEFAULT_RETRY_CONFIG = {
 
 /**
  * Rate limiting configuration for client and proxy limits
- * Based on DeepL API best practices and community feedback
+ * Adjusted to be more conservative to reduce 429 responses
  */
 export const RATE_LIMIT_CONFIG = {
-  // Base per-proxy limits
-  PROXY_TOKENS_PER_SECOND: 12, // Conservative backend proxy rate limit
-  PROXY_MAX_TOKENS: 24,
-  PROXY_REFILL_RATE: 8,
+  // Per-proxy limits — reduced to be conservative
+  PROXY_TOKENS_PER_SECOND: 5, // reduced from 12 to 5
+  PROXY_MAX_TOKENS: 10, // burst capacity
+  PROXY_REFILL_RATE: 5, // refill rate per second
 
   // Dynamic client limits (calculated based on proxy count)
-  BASE_TOKENS_PER_MINUTE: 480, // Fallback when no proxies available
+  BASE_TOKENS_PER_MINUTE: 300, // fallback when no proxies available
 };
 
 /**
