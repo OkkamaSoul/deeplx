@@ -1,6 +1,6 @@
 /**
  * Core translation query functionality for DeepLX API
- * Handles communication with DeepL API endpoints with retry logic and rate limiting
+ * Handles communication with DeepL API endpoints with retry logic, rate limiting and header sanitation
  */
 
 import {
@@ -26,13 +26,6 @@ import {
 } from "./types";
 
 /* ---------- helpers (unchanged / lightly refactored) ---------- */
-
-function ensureUppercaseLanguageCode(langCode: string): string {
-  if (!langCode || langCode.toLowerCase() === "auto") {
-    return "auto";
-  }
-  return langCode.toUpperCase();
-}
 
 function normalizeLanguageCode(langCode: string) {
   if (!langCode || langCode.toLowerCase() === "auto") {
@@ -179,7 +172,7 @@ function buildRequestBody(data: RequestParams) {
   return requestString;
 }
 
-/* ---------- main query function (refactored to use header helper) ---------- */
+/* ---------- main query function (uses sanitized headers) ---------- */
 
 async function query(
   params: RequestParams,
@@ -230,14 +223,14 @@ async function query(
         try {
           const requestBody = buildRequestBody(params);
 
-          // build base headers object
+          // build base headers object (plain record)
           const baseHeadersObj: Record<string, string> = {
             "Content-Type": "application/json; charset=utf-8",
             ...fingerprint,
             ...(config?.customHeader || {}),
           };
 
-          // Prepare headers: remove cf-* and inject X-Real-Client-IP when provided
+          // Prepare headers: remove cf-* and other forwarding headers; inject client IP
           const preparedHeaders = prepareRequestHeaders(
             baseHeadersObj,
             config?.clientIP
