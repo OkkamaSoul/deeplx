@@ -9,11 +9,16 @@ import { CF_HEADER_PREFIX, REAL_CLIENT_IP_HEADER } from "./config";
  * Collection of realistic browser user agents for fingerprinting
  */
 const USER_AGENTS = [
+  // Chrome
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  // Edge
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
+  // Safari (macOS)
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
+  // Firefox
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0",
+  // Linux / Chrome
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 ];
 
 /**
@@ -70,6 +75,7 @@ export function generateBrowserFingerprint(): Record<string, string> {
     "Accept-Language":
       ACCEPT_LANGUAGES[Math.floor(Math.random() * ACCEPT_LANGUAGES.length)],
     Accept: "application/json, text/plain, */*",
+    // don't set content-encoding here — origin/proxy decides; we keep common encodings
     "Accept-Encoding": "gzip, deflate, br",
     DNT: "1",
     Connection: "keep-alive",
@@ -80,6 +86,7 @@ export function generateBrowserFingerprint(): Record<string, string> {
 /**
  * Prepare request headers for sending to origin/proxy:
  * - Remove all headers starting with CF_HEADER_PREFIX (e.g. "cf-")
+ * - Remove common forwarded headers that might leak client chain
  * - Inject the real client IP header (REAL_CLIENT_IP_HEADER)
  *
  * Accepts either a Headers instance or a plain Record of headers.
@@ -96,9 +103,21 @@ export function prepareRequestHeaders(
 
   const prefixLower = CF_HEADER_PREFIX.toLowerCase();
 
-  // Remove Cloudflare internal headers (cf-*)
-  for (const [name] of Array.from(newHeaders.entries())) {
-    if (name.toLowerCase().startsWith(prefixLower)) {
+  // Headers to explicitly remove (common forwarded headers)
+  const removeList = new Set([
+    "x-forwarded-for",
+    "x-client-ip",
+    "true-client-ip",
+    "x-real-ip",
+    "x-real-client-ip",
+    "via",
+    "forwarded",
+  ]);
+
+  // Remove Cloudflare internal headers (cf-*) and other forwarding headers
+  for (const name of Array.from(newHeaders.keys())) {
+    const n = name.toLowerCase();
+    if (n.startsWith(prefixLower) || removeList.has(n)) {
       newHeaders.delete(name);
     }
   }
